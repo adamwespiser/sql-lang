@@ -1,0 +1,11 @@
+id,first_name,last_name,age,weight,employed
+1,Alice,Ackerman,30,120.5,True
+2,Bob,Bauer,40,150.75,False
+3,Charles,Chaplin,100,140.8,True
+4,David,Derry,20,130.8,False
+5,Ethan,Efluvium,65,129.0,True
+6,Frank,Ferry,37,160.7,False
+7,Gary,Green,43,154.0,True
+8,Hugh,Hogan,42,206.7,False
+9,Ivan,Ivan,41,80.5,True
+10,John,Jackson,40,120.6,False
