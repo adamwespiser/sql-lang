@@ -5,35 +5,38 @@ import Select.Expression
 import Select.Relation
 import System.IO
 import Test.Hspec
+import System.Directory
 
 import Internal
 
 main :: IO ()
 main = do
   --print $ getITable testTable
+  createDirectoryIfMissing False "./tmp"
+
   hspec $ describe "execute" $ do
-    it "can ingest and print out table w/ all types" $ do 
+    it "can ingest and print out table w/ all types" $ do
       (showITable $ getITable testTable) `shouldBe` testTable
 
     it "can select a table" $ do
-      execute selectTable "output_people.csv"
-      "output_people.csv" `shouldHaveSameContentAs` "data/people.csv"
+      execute selectTable "./tmp/output_people.csv"
+      "./tmp/output_people.csv" `shouldHaveSameContentAs` "data/people.csv"
 
     it "can select a column using as" $ do
-      execute selectID "output_name_all.csv"
-      "output_name_all.csv" `shouldHaveSameContentAs` "data/expected_output_name_all.csv"
+      execute selectID "./tmp/output_name_all.csv"
+      "./tmp/output_name_all.csv" `shouldHaveSameContentAs` "data/expected_output_name_all.csv"
 
     it "performs filtering and comparisons correctly" $ do
-      execute selectName "output_name.csv"
-      "output_name.csv" `shouldHaveSameContentAs` "data/expected_output_name.csv"
+      execute selectName "./tmp/output_name.csv"
+      "./tmp/output_name.csv" `shouldHaveSameContentAs` "data/expected_output_name.csv"
 
     it "performs joins correctly" $ do
-      execute selectJoin "output_join.csv"
-      "output_join.csv" `shouldHaveSameContentAs` "data/expected_output_join.csv"
+      execute selectJoin "./tmp/output_join.csv"
+      "./tmp/output_join.csv" `shouldHaveSameContentAs` "data/expected_output_join.csv"
 
     it "performs joins union" $ do
-      execute unionTables "output_union.csv"
-      "output_union.csv" `shouldHaveSameContentAs` "data/langs.csv"
+      execute unionTables "./tmp/output_union.csv"
+      "./tmp/output_union.csv" `shouldHaveSameContentAs` "data/langs.csv"
 
 testTable :: String
 testTable = "bool,float,integer,string\nTrue,1.0,42,AdamWespiser\nFalse,10.01,4132412322,HaskellCurry"
@@ -45,7 +48,7 @@ selectTable = SELECT (TABLE "data/people.csv")
 
 selectID :: SelectIdentifier
 selectID =
-  SELECT $ FROM [Column "id" `AS` "ID_MODIFIED"] $ TABLE "data/people.csv" 
+  SELECT $ FROM [Column "id" `AS` "ID_MODIFIED"] $ TABLE "data/people.csv"
 
 selectName :: SelectIdentifier
 selectName =
@@ -53,7 +56,7 @@ selectName =
     `FROM` TABLE "data/people.csv" `WHERE` (Column "age" `Gte` LiteralInt 40)
 
 
-unionTables :: SelectIdentifier 
+unionTables :: SelectIdentifier
 unionTables = SELECT $ UNION (TABLE "data/dynamic.csv") $ TABLE "data/static.csv"
 
 selectJoin :: SelectIdentifier

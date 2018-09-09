@@ -41,7 +41,7 @@ bool = (reserved "True" >> return (CBool True))
   <|> (reserved "False" >> return (CBool False))
 
 
-parseICell = 
+parseICell =
   bool
   <|> try float
   <|> integer
@@ -67,16 +67,16 @@ parseRec = IRecord . concat <$> (many parseICell `sepBy` char ',')
  ICell   - the actual values stored in an ITABLE
  -}
 
-data ICell = ICNil String 
-    | CInt Integer 
-    | CFloat Double 
-    | CString String 
+data ICell = ICNil String
+    | CInt Integer
+    | CFloat Double
+    | CString String
     | CBool Bool deriving (Eq,Show)
 
-data IRecord = IRecord [ICell] 
+data IRecord = IRecord [ICell]
                | IRNil String deriving (Eq,Show)
 data ITable = ITable { name     :: String
-                     , colNames :: [String] 
+                     , colNames :: [String]
                      , body     :: [IRecord] }
               | ITNil String deriving (Eq,Show)
 
@@ -86,7 +86,7 @@ data ITable = ITable { name     :: String
  -}
 
 showCell :: ICell -> String
-showCell cell = 
+showCell cell =
   case cell of
       ICNil  _   -> ""
       CInt x    -> show x
@@ -100,7 +100,7 @@ showRecord (IRNil _) = "#skipped"
 
 showITable :: ITable -> String
 showITable (ITNil _) = "#epicFail"
-showITable (ITable name cols body) = 
+showITable (ITable name cols body) =
   let header = intercalate "," cols
   in intercalate "\n" $ (:) header $ showRecord <$> body
 
@@ -114,7 +114,7 @@ cellTypeMatch (CInt _) (CInt _)       = True
 cellTypeMatch (CFloat _) (CFloat _)   = True
 cellTypeMatch (CString _) (CString _) = True
 cellTypeMatch (CBool _) (CBool _)     = True
-cellTypeMatch _ _                     = False 
+cellTypeMatch _ _                     = False
 
 {-
  IRecord : Helper functions
@@ -129,7 +129,7 @@ selR :: IRecord -> Int -> [ICell]
 selR (IRecord arr) i = if (i < (length arr)) then [arr !! i] else []
 
 selRmany :: [Int] -> IRecord -> IRecord
-selRmany inds arr = 
+selRmany inds arr =
   IRecord $ concat $ selR arr <$> inds
 
 rLength :: IRecord -> Int
@@ -141,21 +141,21 @@ rLength (IRecord rec) = length rec
 
 
 validateTable :: ITable -> Bool
-validateTable (ITable name cols body@(x:xs)) = 
+validateTable (ITable name cols body@(x:xs)) =
   let test1 = foldr1 (&&) $ zipWith (==) (rLength <$> body) $ repeat $ length cols
       test2 = foldr1 (&&) $ (recTypeMatch x) <$> xs
   in  test1 && test2
 
 
 getITable :: String -> ITable
-getITable str = 
+getITable str =
   case splitOn "\n" str of
       (names:rest) -> ITable "default" (splitOn "," names) $ pLine <$> rest
       _            -> ITNil "number of lines"
 
 
 selectCols :: [String] -> ITable -> ITable
-selectCols scols (ITable name cols body) = 
+selectCols scols (ITable name cols body) =
   let selInd = concat $ (flip elemIndices cols) <$> scols
   in  ITable name ((\x -> cols !! x) <$> selInd) $ (selRmany selInd) <$> body
 
@@ -169,7 +169,7 @@ setName (ITable n c b) name = ITable name c b
 setName (ITNil s) name = ITNil s
 
 prependNameToCols :: ITable -> ITable
-prependNameToCols (ITable name cols body) = 
+prependNameToCols (ITable name cols body) =
   ITable name ((\x -> name ++ "." ++ x) <$> cols) body
 prependNameToCols (ITNil s) = ITNil s
 
@@ -184,7 +184,3 @@ unionTable (ITNil s) _ = ITNil s
 unionTable _ (ITNil s) = ITNil s
 unionTable t1@(ITable n1 c1 b1) t2@(ITable n2 c2 b2) =
   if (sameCols t1 t2) then ITable n1 c1 (b1 ++ b2) else ITNil "union fail"
-
-
-
-

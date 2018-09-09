@@ -29,8 +29,7 @@ flipScope x = Map.fromList $ (\(x,y) -> (y,x)) <$> Map.toList x
 mkEnv :: [String] -> Scope -> IRecord -> Map.Map String ICell
 mkEnv cols scope (IRecord cells) =
   let envCols  = Map.fromList $ zipWith (,) cols cells -- -> (colname, ICell)
-      -- envScope (colname, new col), (colname, ICell) -> (new col, ICell)
-      envScope = Map.fromList $ (\x -> (Map.findWithDefault x x scope, Map.findWithDefault (ICNil "" )x envCols)) <$> Map.keys scope
+      envScope = Map.fromList $ (\x -> (Map.findWithDefault x x scope, Map.findWithDefault (ICNil "" ) x envCols)) <$> Map.keys scope
   in Map.union envCols envScope
 
 -- for And,Or
@@ -42,7 +41,8 @@ makeBinaryBool fn x y = error $ (show x) ++ " and " ++  (show y) ++ " makeBinary
 toInt :: (Num a) =>  Bool -> a
 toInt x = fromIntegral (if x then 1 else 0)
 
-makeBinaryEq :: (Num a, Eq a) => (a -> a -> Bool) -> (Expression String -> Expression String -> Expression String)
+makeBinaryEq :: (Num a, Eq a) => (a -> a -> Bool)
+              -> (Expression String -> Expression String -> Expression String)
 makeBinaryEq fn (LiteralBool b1) (LiteralBool b2) = LiteralBool $ fn (toInt b1) (toInt b2)
 makeBinaryEq fn (LiteralInt b1) (LiteralInt b2) = LiteralBool $ fn (fromIntegral b1) (fromIntegral b2)
 makeBinaryEq fn x y = error $ (show x) ++ " and " ++  (show y) ++ " makeBinaryEq, wrong types"
@@ -54,6 +54,75 @@ makeBinaryNum fn (LiteralInt b1) (LiteralInt b2) =
       b22 = fromIntegral b2
   in LiteralBool $ fn b11 b22
 makeBinaryNum fn (LiteralReal b1) (LiteralReal b2) = LiteralBool $ fn b1 b2
+
+
+class UnopReal a where
+    unopminus :: a -> a
+
+instance UnopReal Double where
+  unopminus x = x * (-1)
+instance UnopReal Int where
+  unopminus x = x * (-1)
+
+makeUnopReal ::  (Expression String -> Expression String)
+makeUnopReal (LiteralReal r1) = LiteralReal $ unopminus r1
+makeUnopReal (LiteralInt i1) = LiteralInt   $ unopminus i1
+makeUnopReal _ = error "unary operation failed"
+
+class BinopReal a  where
+  binopAdd :: a -> a -> a
+  binopSub :: a -> a -> a
+  binopMul :: a -> a -> a
+  binopDiv :: a -> a -> a
+
+instance BinopReal Double where
+  binopAdd x y = x + y
+  binopSub x y = x - y
+  binopMul x y = x * y
+  binopDiv x y = x / y
+
+instance BinopReal Int where
+  binopAdd x y = x + y
+  binopSub x y = x - y
+  binopMul x y = x * y
+  binopDiv x y = quot x y
+
+data BinopCode = BAdd | BSub | BMul | BDiv
+
+
+makeBinopMathRealHelper :: BinopCode -> Double -> Double -> Expression String
+makeBinopMathRealHelper code r1 r2 =
+  case code of
+    BAdd -> LiteralReal $ binopAdd r1 r2
+    BSub -> LiteralReal $ binopSub r1 r2
+    BMul -> LiteralReal $ binopMul r1 r2
+    BDiv -> LiteralReal $ binopDiv r1 r2
+
+makeBinopMath :: BinopCode ->
+  (Expression String   -> Expression String -> Expression String)
+makeBinopMath code (LiteralInt i1) (LiteralInt i2) =
+  case code of
+    BAdd -> LiteralInt $ binopAdd i1 i2
+    BSub -> LiteralInt $ binopSub i1 i2
+    BMul -> LiteralInt $ binopMul i1 i2
+    BDiv -> LiteralInt $ binopDiv i1 i2
+makeBinopMath code (LiteralReal r1) (LiteralReal r2) =
+  makeBinopMathRealHelper code r1 r2
+makeBinopMath code (LiteralReal r1) (LiteralInt i2) =
+  let r2 = fromIntegral i2
+  in makeBinopMathRealHelper code r1 r2
+makeBinopMath code (LiteralInt i1) (LiteralReal r2) =
+  let r1 = fromIntegral i1
+  in makeBinopMathRealHelper code r1 r2
+makeBinopMath _ _ _ = error "Binary math operation failed"
+
+
+intMod :: Expression String -> Expression String -> Expression String
+intMod (LiteralInt i1) (LiteralInt i2) = LiteralInt $ i1 `mod` i2
+intMod _ _ = error "mod function failed ... non-integer args?"
+
+
+
 {-
  eval Expression
  -}
@@ -84,6 +153,14 @@ evalExp (Gt val1 val2) c s r  = makeBinaryNum ((>)) (evalExp val1 c s r) (evalEx
 evalExp (Gte val1 val2) c s r = makeBinaryNum (>=) (evalExp val1 c s r) (evalExp val2 c s r)
 evalExp (Lt val1 val2) c s r = makeBinaryNum ((<)) (evalExp val1 c s r) (evalExp val2 c s r)
 evalExp (Lte val1 val2) c s r = makeBinaryNum ((<=)) (evalExp val1 c s r) (evalExp val2 c s r)
+evalExp (Neg val) c s r = makeUnopReal  (evalExp val c s r)
+evalExp (Add val1 val2) c s r = makeBinopMath (BAdd) (evalExp val1 c s r) (evalExp val2 c s r)
+evalExp (Sub val1 val2) c s r = makeBinopMath (BSub) (evalExp val1 c s r) (evalExp val2 c s r)
+evalExp (Mul val1 val2) c s r = makeBinopMath (BMul) (evalExp val1 c s r) (evalExp val2 c s r)
+evalExp (Div val1 val2) c s r = makeBinopMath (BDiv) (evalExp val1 c s r) (evalExp val2 c s r)
+evalExp (Mod val1 val2) c s r = intMod (evalExp val1 c s r) (evalExp val2 c s r)
+
+
 evalExp x c s r = error $ show x ++ " invalid expression"
 {-
  WHERE helper functions
